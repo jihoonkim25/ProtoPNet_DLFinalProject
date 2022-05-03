@@ -1,6 +1,9 @@
 import time
 import torch
 
+from sklearn.preprocessing import OneHotEncoder
+
+
 from helpers import list_of_distances, make_one_hot
 
 def _train_or_test(model, dataloader, optimizer=None, class_specific=True, use_l1_mask=True,
@@ -22,7 +25,8 @@ def _train_or_test(model, dataloader, optimizer=None, class_specific=True, use_l
     total_avg_separation_cost = 0
 
     for i, (image, label) in enumerate(dataloader):
-        input = image.cuda()
+        print("training batch: ", i)
+        input = image.cuda().float()
         target = label.cuda()
 
         # torch.enable_grad() has no effect outside of no_grad()
@@ -31,9 +35,8 @@ def _train_or_test(model, dataloader, optimizer=None, class_specific=True, use_l
             # nn.Module has implemented __call__() function
             # so no need to call .forward
             output, min_distances = model(input)
-
             # compute loss
-            cross_entropy = torch.nn.functional.cross_entropy(output, target)
+            cross_entropy = torch.nn.functional.cross_entropy(output, target.type(torch.LongTensor).cuda())
 
             if class_specific:
                 max_dist = (model.module.prototype_shape[1]
@@ -42,7 +45,7 @@ def _train_or_test(model, dataloader, optimizer=None, class_specific=True, use_l
 
                 # prototypes_of_correct_class is a tensor of shape batch_size * num_prototypes
                 # calculate cluster cost
-                prototypes_of_correct_class = torch.t(model.module.prototype_class_identity[:,label]).cuda()
+                prototypes_of_correct_class = torch.t(model.module.prototype_class_identity[:,label.long()]).cuda()
                 inverted_distances, _ = torch.max((max_dist - min_distances) * prototypes_of_correct_class, dim=1)
                 cluster_cost = torch.mean(max_dist - inverted_distances)
 

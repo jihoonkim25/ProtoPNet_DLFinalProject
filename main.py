@@ -18,6 +18,8 @@ import train_and_test as tnt
 import save
 from log import create_logger
 from preprocess import mean, std, preprocess_input_function
+import copy
+from dataloaders import get_resampling_dataloader, get_slice_dataloaders, get_slice_dataloaders_proto, get_resampling_dataloaders_proto
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-gpuid', nargs=1, type=str, default='0') # python3 main.py -gpuid=0,1,2,3
@@ -33,11 +35,13 @@ base_architecture_type = re.match('^[a-z]*', base_architecture).group(0)
 
 model_dir = './saved_models/' + base_architecture + '/' + experiment_run + '/'
 makedir(model_dir)
-shutil.copy(src=os.path.join(os.getcwd(), __file__), dst=model_dir)
-shutil.copy(src=os.path.join(os.getcwd(), 'settings.py'), dst=model_dir)
-shutil.copy(src=os.path.join(os.getcwd(), base_architecture_type + '_features.py'), dst=model_dir)
-shutil.copy(src=os.path.join(os.getcwd(), 'model.py'), dst=model_dir)
-shutil.copy(src=os.path.join(os.getcwd(), 'train_and_test.py'), dst=model_dir)
+# shutil.copy(src=os.path.join(os.getcwd(), __file__), dst=model_dir)
+# shutil.copy(src=os.path.join(os.getcwd(), '/ProtoPNet_DLFinalProject/settings.py'), dst=model_dir)
+# shutil.copy(src=os.path.join(os.getcwd(), "/ProtoPNet_DLFinalProject/" + base_architecture_type + '_features.py'), dst=model_dir)
+# shutil.copy(src=os.path.join(
+#     os.getcwd(), '/ProtoPNet_DLFinalProject/model.py'), dst=model_dir)
+# shutil.copy(src=os.path.join(
+#     os.getcwd(), '/ProtoPNet_DLFinalProject/train_and_test.py'), dst=model_dir)
 
 log, logclose = create_logger(log_filename=os.path.join(model_dir, 'train.log'))
 img_dir = os.path.join(model_dir, 'img')
@@ -48,51 +52,57 @@ prototype_self_act_filename_prefix = 'prototype-self-act'
 proto_bound_boxes_filename_prefix = 'bb'
 
 # load the data
-from settings import train_dir, test_dir, train_push_dir, \
-                     train_batch_size, test_batch_size, train_push_batch_size
+from settings import data_dir, metadata_valid, metadata_train, metadata_test, batch_sz
 
 normalize = transforms.Normalize(mean=mean,
                                  std=std)
 
 # all datasets
 # train set
-train_dataset = datasets.ImageFolder(
-    train_dir,
-    transforms.Compose([
-        transforms.Resize(size=(img_size, img_size)),
-        transforms.ToTensor(),
-        normalize,
-    ]))
-train_loader = torch.utils.data.DataLoader(
-    train_dataset, batch_size=train_batch_size, shuffle=True,
-    num_workers=4, pin_memory=False)
-# push set
-train_push_dataset = datasets.ImageFolder(
-    train_push_dir,
-    transforms.Compose([
-        transforms.Resize(size=(img_size, img_size)),
-        transforms.ToTensor(),
-    ]))
-train_push_loader = torch.utils.data.DataLoader(
-    train_push_dataset, batch_size=train_push_batch_size, shuffle=False,
-    num_workers=4, pin_memory=False)
-# test set
-test_dataset = datasets.ImageFolder(
-    test_dir,
-    transforms.Compose([
-        transforms.Resize(size=(img_size, img_size)),
-        transforms.ToTensor(),
-        normalize,
-    ]))
-test_loader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=test_batch_size, shuffle=False,
-    num_workers=4, pin_memory=False)
+train_loader, val_loader, test_loader = get_resampling_dataloaders_proto(data_dir,
+                                                    {'train': metadata_train,
+                                                     'val': metadata_valid,
+                                                     'test': metadata_test},
+                                                    batch_sz)
+train_push_loader = copy.deepcopy(train_loader)
+                                
+# train_dataset = datasets.ImageFolder(
+#     train_dir,
+#     transforms.Compose([
+#         transforms.Resize(size=(img_size, img_size)),
+#         transforms.ToTensor(),
+#         normalize,
+#     ]))
+# train_loader = torch.utils.data.DataLoader(
+#     train_dataset, batch_size=train_batch_size, shuffle=True,
+#     num_workers=4, pin_memory=False)
+# # push set
+# train_push_dataset = datasets.ImageFolder(
+#     train_push_dir,
+#     transforms.Compose([
+#         transforms.Resize(size=(img_size, img_size)),
+#         transforms.ToTensor(),
+#     ]))
+# train_push_loader = torch.utils.data.DataLoader(
+#     train_push_dataset, batch_size=train_push_batch_size, shuffle=False,
+#     num_workers=4, pin_memory=False)
+# # test set
+# test_dataset = datasets.ImageFolder(
+#     test_dir,
+#     transforms.Compose([
+#         transforms.Resize(size=(img_size, img_size)),
+#         transforms.ToTensor(),
+#         normalize,
+#     ]))
+# test_loader = torch.utils.data.DataLoader(
+#     test_dataset, batch_size=test_batch_size, shuffle=False,
+#     num_workers=4, pin_memory=False)
 
 # we should look into distributed sampler more carefully at torch.utils.data.distributed.DistributedSampler(train_dataset)
 log('training set size: {0}'.format(len(train_loader.dataset)))
 log('push set size: {0}'.format(len(train_push_loader.dataset)))
 log('test set size: {0}'.format(len(test_loader.dataset)))
-log('batch size: {0}'.format(train_batch_size))
+log('batch size: {0}'.format(batch_sz))
 
 # construct the model
 ppnet = model.construct_PPNet(base_architecture=base_architecture,

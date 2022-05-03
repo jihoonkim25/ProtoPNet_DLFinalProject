@@ -1,0 +1,5 @@
+.DS_STORE
+trimmed/*
+*__pycache__*
+data/*
+data/axials/*

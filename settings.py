@@ -1,19 +1,36 @@
 base_architecture = 'vgg19'
 img_size = 224
 prototype_shape = (2000, 128, 1, 1)
-num_classes = 200
+num_classes = 2 # COVID-19 Positive or Negative
 prototype_activation_function = 'log'
 add_on_layers_type = 'regular'
 
-experiment_run = '003'
+experiment_run = '001'
 
-data_path = './datasets/cub200_cropped/'
+data_path = './trimmed'
 train_dir = data_path + 'train_cropped_augmented/'
 test_dir = data_path + 'test_cropped/'
 train_push_dir = data_path + 'train_cropped/'
-train_batch_size = 80
-test_batch_size = 100
-train_push_batch_size = 75
+train_batch_size = 5000
+test_batch_size = 5000
+train_push_batch_size = 5000
+
+# for preprocessed data
+
+# data_dir = './preprocessed'
+# metadata_train = './metadata/metadata_train.npz'
+# metadata_valid = './metadata/metadata_val.npz'
+# metadata_test = './metadata/metadata_test.npz'
+# batch_sz = 5000
+
+
+# for resampling data
+
+data_dir = './trimmed'
+metadata_train = './metadata/train.csv'
+metadata_valid = './metadata/val.csv'
+metadata_test = './metadata/test.csv'
+batch_sz = 50
 
 joint_optimizer_lrs = {'features': 1e-4,
                        'add_on_layers': 3e-3,
