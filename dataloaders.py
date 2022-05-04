@@ -75,6 +75,8 @@ class SliceDataset(Dataset):
         image = pair['img']
         label = pair['label']
 
+        image = image[50:-50, 50:-50]
+
         if self.transforms:
             if callable(self.transforms): 
                 image = self.transforms(image)
